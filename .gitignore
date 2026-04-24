@@ -1,0 +1,28 @@
+# Design documents & PDFs — local only
+design/
+docs-pdf/
+システム設計/
+
+# Frontend dependencies & build
+Frontend/node_modules/
+Frontend/dist/
+Frontend/.env
+Frontend/.env.local
+Frontend/.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

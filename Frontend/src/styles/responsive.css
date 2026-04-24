@@ -1,0 +1,153 @@
+/* Responsive Design Utilities for DevOffice AI */
+
+@layer utilities {
+  /* Mobile-first breakpoints */
+  .container-responsive {
+    @apply px-4 sm:px-6 md:px-8;
+  }
+
+  /* Hide on mobile */
+  .hide-mobile {
+    @apply hidden sm:block;
+  }
+
+  /* Show only on mobile */
+  .show-mobile {
+    @apply block sm:hidden;
+  }
+
+  /* Responsive text sizes */
+  .text-responsive-xs {
+    @apply text-[10px] sm:text-[11px];
+  }
+
+  .text-responsive-sm {
+    @apply text-[11px] sm:text-[12px];
+  }
+
+  .text-responsive-base {
+    @apply text-[13px] sm:text-[14px];
+  }
+
+  .text-responsive-lg {
+    @apply text-[15px] sm:text-[16px];
+  }
+
+  .text-responsive-xl {
+    @apply text-[18px] sm:text-[20px];
+  }
+
+  /* Responsive spacing */
+  .gap-responsive {
+    @apply gap-2 sm:gap-3 md:gap-4;
+  }
+
+  .p-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+
+  /* Responsive grid */
+  .grid-responsive-2 {
+    @apply grid grid-cols-1 sm:grid-cols-2;
+  }
+
+  .grid-responsive-3 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .grid-responsive-4 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  /* Responsive flex direction */
+  .flex-responsive {
+    @apply flex-col sm:flex-row;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  /* Reduce canvas size on mobile */
+  .virtual-office-canvas {
+    transform: scale(0.7);
+    transform-origin: top center;
+  }
+
+  /* Stack layout vertically */
+  .dashboard-layout {
+    flex-direction: column;
+  }
+
+  /* Full width sidebar on mobile */
+  .sidebar-mobile {
+    width: 100%;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  /* Adjust modal size */
+  .modal-mobile {
+    width: 95vw !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* Smaller padding */
+  .card-mobile {
+    padding: 12px !important;
+  }
+
+  /* Reduce gap */
+  .gap-mobile {
+    gap: 8px !important;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .sidebar-tablet {
+    width: 200px;
+  }
+
+  .canvas-tablet {
+    transform: scale(0.85);
+  }
+
+  .activity-panel-tablet {
+    width: 320px;
+  }
+}
+
+/* Touch-friendly buttons */
+@media (hover: none) and (pointer: coarse) {
+  button, .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .touch-target {
+    padding: 12px !important;
+  }
+}
+
+/* Landscape mode optimizations */
+@media (orientation: landscape) and (max-height: 600px) {
+  .navbar {
+    height: 48px !important;
+  }
+
+  .modal-landscape {
+    max-height: 85vh;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-full-width {
+    width: 100% !important;
+  }
+}

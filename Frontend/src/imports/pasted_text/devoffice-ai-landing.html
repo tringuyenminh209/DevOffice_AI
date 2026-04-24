@@ -1,0 +1,253 @@
+ Build the full product UI for "DevOffice AI", an enterprise AI observability platform where CEOs can watch their AI agents work inside a 2D virtual office in real-time. The aesthetic must be "Enterprise Dark
+   SaaS meets 2D Pixel Art Game" — think Linear's precision UI housing a Stardew Valley–inspired office canvas. Every design decision must serve the core tagline: "The only AI observability your CEO can read."
+
+  ---
+  Core Design System
+
+  Palette — Dark Enterprise with Intentional Accents:
+  - Background base: #0C0D12 (near-black with blue undertone, not pure black)
+  - Surface layer: #15171F (app panels, sidebars)
+  - Card layer: #1D202B (individual cards, rows)
+  - Primary accent: #5E55EA (violet — used for active states, CTAs, brand elements)
+  - Accent light: #7D75F7 (hover states, secondary accent)
+  - Emerald #10B06B — success, idle state, approved actions
+  - Amber #EB9619 — waiting, pending approval, budget warnings
+  - Crimson #DA3950 — error, high-risk actions, rejection
+  - Sapphire #267ADE — Researcher agent, informational states
+  - Gold #E5BA2E — Analyst agent, cost indicators
+  - Text primary: #EAEDEC · Text secondary: #7D8BA3 · Text muted: #556177
+  - Border subtle: #2B303F · Border inner: #1F232F
+
+  Typography:
+  - All UI text: Inter — tight letter-spacing (-0.02em) on headings, normal on body
+  - Code, payloads, technical logs: monospaced (JetBrains Mono or Geist Mono) in #10D062
+  - Headline weights: Bold 700 for screen titles, Semi Bold 600 for card headers, Regular 400 for metadata
+  - No font size below 9px in the interface; no font size above 64px except the landing hero
+  - Agent state labels: ALL CAPS, 9px, Semi Bold, colored by state
+
+  Grid & Spacing:
+  - App screens: 1440×900px desktop layout
+  - Sidebar: 220px fixed left · Right panel: 360–640px fixed right · Canvas: fluid center
+  - Base unit: 4px — all padding, gaps, and radii are multiples of 4
+  - Corner radius: 8–12px for cards and panels, 4–6px for buttons and badges, 16–20px for modals
+  - 1px borders everywhere using border color tokens — never 2px except active/focus states
+  - Top navigation bar: 56px height, always sticky
+
+  Icon System (NO EMOJI — strict rule):
+  - All icons must be geometric primitives built from rectangles, ellipses, and polygons
+  - Agent avatars: 2-letter initials (RS, AN, WR, RV, DV) inside a colored circle with 15% opacity background
+  - Status indicators: filled 8×8px circles for live dots; rectangular 3×14px accent bars for state lines
+  - Action icons: triangles for play/rewind, stacked rectangles for waveform/audio, cross lines for close
+  - Risk level icons: exclamation built from tall rectangle + small circle, NOT a Unicode character
+
+  ---
+  Screen 1 — Landing Page (1440×900)
+
+  Navbar: Transparent-to-surface blur navbar, 66px height. Left: geometric "D" logo mark in accent violet square 36×36px + wordmark "DevOffice AI" Bold. Center: product nav links (Product, Pricing, Docs,
+  Changelog) in text-secondary. Right: outlined "Log in" button (no fill, border) + filled "Get started" button in accent violet. Use 1px bottom border to separate from hero.
+
+  Hero Section:
+  - A subtle ambient glow orb (radial gradient ellipse, accent violet #5E55EA at 5% opacity) bleeds from top-left corner. A smaller sapphire orb sits top-right.
+  - Centered "New" badge: #5E55EA 10% fill + 1px accent border + 15px border-radius. Small 8×8px emerald dot left of text: "Now in Beta · CrewAI supported"
+  - Main headline in two lines, centered, 64px Bold:
+    - Line 1: "The only AI observability" in text-primary
+    - Line 2: "your CEO can read." in accent violet #5E55EA
+  - Subheadline: 17px, text-secondary, line-height 28px, centered, max-width 660px
+  - Two CTA buttons side by side, centered: Primary filled (accent, "Start Free Trial →"), secondary outlined with no fill ("Watch Demo" + left-aligned geometric triangle play icon)
+  - Social proof line below: 12px, text-muted, "Trusted by AI teams at Series A–C companies · No credit card required · SOC 2 Type I in progress"
+
+  Feature Cards Row (4 columns at bottom):
+  Each card 300×180px, 12px radius, card background #1D202B, 1px border. Top-left: 44×44px icon container with brand color at 12% opacity fill + 1px border + 10px radius. Icon built from geometric shapes only
+  (rectangles and ellipses — no emoji). Card title: 14px Semi Bold. Description: 11px text-secondary, line-height 17px.
+  - Card 1 "Virtual Office" — accent violet — icon: building silhouette (stacked rectangle blocks)
+  - Card 2 "Approval Gates" — crimson — icon: shield shape (circle + rectangle overlay)
+  - Card 3 "Role-Based Views" — sapphire — icon: two circles + rectangle base (people)
+  - Card 4 "Cost Tracker" — amber — icon: bar chart (4 rising rectangles + baseline)
+
+  Stats Row: 4 stats below feature cards: "1 line / SDK integration" · "60 fps / 10 agents live" · "5× / less infra vs Node" · "SOC 2 / Type I ready". Value in 28px accent violet Bold; label in 12px
+  text-secondary.
+
+  ---
+  Screen 2 — Manager View Dashboard (1440×900)
+
+  This is the hero product screen. The layout has three vertical columns.
+
+  Top Bar (56px):
+  Left: logo + "DevOffice AI" Bold 15px + session name 10px text-secondary. Center: "LIVE" badge (emerald 12% fill + 1px border, 8×8px emerald dot + "LIVE" 11px Semi Bold) + segmented toggle "Manager | Dev"
+  where active tab is accent violet filled and inactive is ghost text. Right: session cost in amber Bold + audio waveform button (5 rectangular bars of varying heights in accent violet, card background) + user
+   avatar initials circle.
+
+  Left Sidebar (220px, surface background, 1px border-right):
+  Section header "AGENTS" in 9px text-secondary Semi Bold ALL CAPS. Five agent cards 202×58px each, 10px radius, card background. Each card: left side has a 36×36px circle avatar with agent color at 15%
+  opacity + initials Bold · Right: agent name 12px, role 10px text-secondary, state label 9px colored by state with a 3px height × 60px width colored bottom accent bar. Active card gets 1.5px agent-color
+  border instead of default border. Token count small text-muted top-right.
+
+  Agent roster with color assignments:
+  - RS — Researcher: Sapphire #267ADE · state: thinking (amber label)
+  - AN — Analyst: Gold #E5BA2E · state: tool_call (accent-light label)
+  - WR — Writer: Forest green #228B22 · state: idle (text-muted label)
+  - RV — Reviewer: Accent violet #5E55EA · state: idle (text-muted label)
+  - DV — Developer: Slate #47546D · state: error (crimson label)
+
+  Below agents: thin 1px border divider, then "SESSION" section with key-value rows: Duration, Events, Tool calls, Approvals (last one in amber).
+
+  Center Canvas — "Virtual Office" (fluid, ~836px wide):
+  Canvas header bar 38px: "Virtual Office" Semi Bold + separator + "Manager View · Real-time" text-secondary. + and − zoom controls top-right (card background, border, 4px radius).
+
+  The canvas background is #080C11 (deeper than app bg). Draw a 60px grid of subtle 1px border lines at 12% opacity — the grid lines must be visible but quiet.
+
+  Five functional zones clearly bounded by 1px colored zone borders, each with a small zone label badge (8px Semi Bold ALL CAPS, card background, 4px radius, colored border):
+
+  Zone 1 — LOUNGE (top-left, ~196×210px):
+  - A 3-seat sofa: three 38×38px cushion squares side-by-side with a slightly lighter back bar behind them. Color: deep blue-navy #1A2350.
+  - A coffee machine top-right corner: a 32×44px charcoal rectangle with a small amber ellipse (cup indicator) and 3 thin vertical steam lines (2px wide, 6–10px tall, 40% opacity).
+  - Two plants: geometric stem (4px wide rectangle) with 4 leaf rectangles fanned out, forest green.
+
+  Zone 2 — DATA VAULT (top-right, ~260×210px):
+  - Entry arch: a 1px sapphire line across top + two 6×50px side pillars in sapphire 60% opacity.
+  - Four server rack towers: 44×130px charcoal rectangles with 4px radius, a dark panel on top. Inside each rack: 9 rows of 3 LEDs (6×6px ellipses) in alternating emerald/crimson/amber rhythms.
+  - A mainframe center screen: 52×56px very dark rectangle with 1px sapphire border showing 6 rows of randomly-sized horizontal bars in matrix-green #0ED061 at 80% opacity — simulating scrolling code.
+
+  Zone 3 — WORKSTATIONS (center, 5 desks):
+  Each desk: 130×92px surface background rectangle, 6px radius, 1px colored border matching agent color at 60% brightness. On desk: a small monitor (50×32px dark rectangle + 42×24px slightly lighter inner
+  screen). Desk lamp: 14×14px circle in agent color (bright if agent is active, 20% opacity if idle). Below desk: a 38×20px rounded chair shape. Label: agent name 10px Semi Bold + items description 8px
+  text-muted.
+
+  Zone 4 — MEETING ROOM (bottom-right, ~348×366px):
+  - Round oak table: large 180×148px ellipse in warm brown #411305 with a 148×120px slightly lighter inner ellipse. Dead center: a small 36×30px accent-violet ellipse at 25% opacity with "D" text — the logo
+  watermark on the table surface.
+  - 8 chairs arranged around table: 20×20px ellipses in a darker warm brown.
+  - Hologram projector: 26×16px ellipse in slate-blue center of table. Above it, 3–4 increasingly wide horizontal bars in accent violet at 10–15% opacity — simulating a holographic cone projection upward.
+  - A whiteboard: 70×108px off-white rectangle #E1E5EB with 4px radius, showing flow text "R → A → W → Rev" in 7px dark text and 3 colored horizontal bar indicators.
+
+  Zone 5 — CENTRAL HALLWAY & APPROVAL GATE (vertical axis, center):
+  - Red carpet: 46px wide × 350px tall crimson rectangle at 25% opacity with 4px radius, centered on the vertical axis.
+  - Gate arch: two 10×56px amber pillars + a 64×10px amber lintel across the top, at 85% opacity. Behind the arch: a large 96×80px ellipse in amber at 8% opacity for glow effect.
+  - Control podium: 32×36px card-colored rectangle with 4px border and amber 1px border, containing a 12×12px amber ellipse with a 4×4px dark center — a button.
+
+  Agent Sprites on Canvas:
+
+  Each agent is a 40×40px ellipse in their brand color, with a faint 52×52px glow ring (same color, 18–20% opacity) behind them. Active agents get a 2px white stroke on the outside of the sprite. Agent
+  initials 14px Bold bg-colored text centered inside. Agents NOT in their idle position leave a 3-step path trace — a trail of 3 progressively smaller and more transparent ellipses behind their movement
+  direction.
+
+  - RS (Researcher): positioned near Data Vault, active (white stroke), path trail in sapphire. A small speech bubble above: surface background 95% opacity, 10px radius, 1px sapphire border, text "Đang tìm
+  hiểu giá đối thủ..." in 10px. Three small 2×8px green bars (data sparks) emanating from the agent toward the vault.
+  - AN (Analyst): positioned at workstations, active, amber dashed-look ring around sprite. Speech bubble: 1.5px amber border, "Đã xong, chờ sếp kiểm duyệt" in amber Semi Bold.
+  - WR (Writer): in Lounge zone, 50% opacity ellipse (idle, resting). Small bubble with text "Đang nghỉ ngơi" in text-muted.
+  - RV (Reviewer): at Meeting Room table, 70% opacity.
+  - DV (Developer): standing ON the red carpet hallway (error + waiting for approval). Two concentric glow rings in amber 8% + 12% opacity. Sprite in crimson. A two-line speech bubble: "Lỗi mạng" in crimson
+  Semi Bold + "Đang thử lại..." in text-secondary. A 3×18px crimson left accent bar on the bubble.
+
+  Right Panel (382px, surface background):
+  Header: "SMART ACTIVITY" 10px ALL CAPS text-secondary + "→ CEO Language" in accent violet 10px aligned right.
+
+  Cost card at top: 354×96px, card bg, 12px radius, 1px border. Two columns: left "COST" label + $0.0342 in 22px amber Bold + "USD · phiên hiện tại" text-secondary. Right: token count. Budget progress bar 8px
+  height at bottom: dark background + amber fill at 25% width.
+
+  Below: "SỰ KIỆN" section header. 8 event cards 354×62px each, card bg, 8px radius, 1px border. Each card: a 3×62px left accent bar in event color · a small 18px tall badge top-left (event type in 9px Semi
+  Bold, colored bg at 12% opacity + 1px border) · agent name 11px colored Semi Bold · message text 10px text-secondary in Vietnamese business language. Small time stamp top-right in text-muted.
+
+  Event types mapped to colors: CHỜ DUYỆT → crimson · ĐANG CHẠY → accent-light · HOÀN TẤT → emerald · NGHỈ → text-muted · LỖI → crimson.
+
+  ---
+  Screen 3 — Dev View (1440×900)
+
+  Same top bar as Manager View. The toggle shows "Dev" tab as active (accent filled), "Manager" as ghost.
+
+  Left column (220px): Agent filter list. Same agent roster as sidebar, but displayed as clickable rows 44px tall with 24×24px avatar circles and state info. "All" row at top, selected row gets accent violet
+  10% background + 1.5px accent border.
+
+  Center column (780px): Event trace timeline.
+  - Filter bar 52px: "Filter:" label + 5 filter pills (All, tool_call, state_change, message, error). Active pill: accent violet filled. Others: card bg with border.
+  - "EVENT TRACE" header + event count aligned right, both 9px text-secondary.
+  - 10 event rows, 756×62px each, 8px radius, card bg. Each row: 3px left accent bar in event color · type badge (9px Semi Bold, 12% opacity bg, 1px border) · agent name 12px colored · payload text 10px
+  text-secondary monospace — showing raw tool call syntax. Timestamp top-right 9px text-muted. Token cost +$0.0008 in amber 9px for tool_call rows. "Needs Approval" badge (crimson bg, right side) for approval
+  events.
+  - First row (approval event) gets 1.5px crimson border as highlighted/selected state.
+
+  Right column (440px): Event detail panel.
+  - "EVENT DETAIL" header 9px ALL CAPS.
+  - Selected event summary card 408×52px, crimson border 1.5px.
+  - 6 key-value field rows (Agent ID, Session ID, Event Type, Tool, Status, Requested) with 1px border dividers between them.
+  - "PAYLOAD" section: 408×110px very dark code block (#070B0D), 8px radius, 1px border, monospaced 11px matrix-green text showing JSON payload.
+  - "TOKENS" row: 4 stats side-by-side (In/sapphire, Out/emerald, Total/txt, Cost/amber) in 408×56px card.
+  - "CALL STACK" code block: dark bg, monospaced 10px text-secondary showing 3-line stack trace.
+
+  ---
+  Screen 4 — Approval Gate Modal (1440×900)
+
+  Background: The Manager View canvas rendered at 75% opacity behind the modal — giving the sense of a live overlay pause.
+
+  Risk Level Legend (top-right corner, floating): A small 170×108px surface panel with 10px radius, 1px border. Header "RISK LEVELS" 9px. Three rows: colored 8×8px square + level name (LOW/MEDIUM/HIGH) in
+  brand color Bold + description 8px text-secondary. Colors: LOW=sapphire, MEDIUM=amber, HIGH=crimson.
+
+  Modal 600×640px, centered:
+  - 2px crimson outer border, 16px radius
+  - Top edge: 6px crimson fill strip
+  - Top section 80px with 4% crimson tint background: The AN (Analyst) agent avatar 56×56px gold ellipse centered, with 72×72px glow ring. Floating hologram chart effect: 3 ascending 5px-wide rectangles at
+  amber 70% opacity on each side, simulating the Analyst's hologram state. A 2px amber dashed-look ring around the avatar (built with opacity rings).
+  - Title "Analyst đang chờ phê duyệt" 20px Bold centered below avatar.
+  - Subtitle 12px text-secondary centered.
+  - 1px divider.
+
+  Risk Level Row 552×52px: crimson 8% bg, 1.5px crimson border, 10px radius. Left: 32×32px icon container crimson 15% bg with a geometric exclamation mark (tall 4×14px rectangle + 6×6px circle below it). "RỦI
+  RO CAO" 13px crimson Bold. Descriptive text 10px crimson. Three 10×22px crimson filled rectangles top-right = full risk meter.
+
+  Tool Card 552×60px: card bg, 1.5px amber border. Left 40×40px amber icon container. Tool name "send_email" 16px Bold. Subtitle 11px amber. No emoji — the envelope icon inside the container is built from a
+  28×20px rectangle with 1.5px amber border stroke (no fill) + an x line inside.
+
+  CEO Language Card 552×52px: dark sapphire-tinted bg #071826, 1px sapphire border, 3px left accent bar in sapphire. Label "Ngôn ngữ dành cho CEO" 10px sapphire Semi Bold. Quote text 11px text-primary.
+
+  Payload code block 552×76px: very dark bg, monospaced 10px matrix-green, showing 4-line JSON (to, subject, body, attachments).
+
+  Timer bar 552×8px: dark bg + amber fill at 60%. Countdown label above.
+
+  Two action buttons 48px tall:
+  - Reject 252px wide: crimson 10% bg, 1.5px crimson border, "Từ chối" 15px crimson Semi Bold. Geometric × icon left.
+  - Approve 288px wide: solid emerald fill, "Phê duyệt & Gửi đi" 15px bg-colored Bold. Geometric ✓ built from two rectangles. Small "Rung xác nhận trên thiết bị di động" hint text 9px text-muted below.
+
+  ---
+  Screen 5 — Session Replay (1440×900)
+
+  Top bar: Same pattern. Add a "REPLAY ×10" badge in amber (two left-pointing polygon triangles + text). Audio waveform icon button: 5 rectangles 5px wide × variable height (3,7,11,7,3px) in accent violet —
+  simulating a playback waveform.
+
+  Session selector bar 48px: card background, 3 selectable session pills 280×38px. Active pill: accent at 15% bg + 1.5px accent border. Inactive: surface bg with border. Session name 12px Semi Bold + time/cost
+   info 9px text-muted. Status dot 10×10px circle: emerald=success, crimson=failed.
+
+  Left area 800px wide:
+  The replay canvas shows the same 5-zone office layout as Screen 2 but with all zones at 60% opacity (past/history state). Ghost trail ellipses appear behind each agent position (3 progressively smaller and
+  more transparent ellipses in a line before the current position). Agent sprites are 50% opacity for inactive agents, 100% + white stroke for active replay agents.
+
+  Playback Controls bar 60px: surface bg, 1px border-top. Transport buttons: 5 buttons 38×38px each (card bg, border, 8px radius) labeled with geometric shapes: |◁, ◁◁, ▐▌, ▷▷, ▷|. Speed selector: 4 pill
+  options (1×/2×/5×/10×) where 10× is amber-filled. Current timestamp "14:32:07" in 18px Bold + "/ 14:36:42" 10px text-secondary. Progress bar 172×8px (dark bg + accent fill at 62%) + 14×14px accent scrub head
+   circle.
+
+  Scrubber 80px: surface bg, 1px border. Header "TIMELINE" + legend "Mốc vàng = Approval Gate" in amber 9px. Main timeline track 772×36px very dark bg, 6px radius, 1px border. Inside: accent at 12% opacity
+  fill to show elapsed. Approval gate markers: 4×28px amber rectangles at positions 28%, 55%, 78%. Error marker: crimson rectangle at 42%. Event dots: 10×10px accent ellipses at 8 positions. Playhead: 6×36px
+  white rectangle at 62% + 14×14px white circle head above it.
+
+  Right panel 640px:
+  - AI Voice Summary card 612×68px: card bg, 1px accent border, 12px radius. Left: 44×40px accent icon container with 7 waveform bars (4px wide, variable heights: 3,7,11,14,11,7,3px) in accent at 80% opacity.
+  Title "AI Voice Summary — 15 giây" 12px accent Semi Bold. Quote text 10px text-primary in Vietnamese — the CEO's audio summary script.
+  - Stats grid 3×2: 6 stat cards 184×56px (Thời gian, Chi phí, Sự kiện, Phê duyệt, Tiết kiệm, ROI ước tính). Card bg, 8px radius, 1px border. Label 10px text-secondary + value 18px Bold in brand colors.
+  - Agent performance section: 5 bars showing agent vs events. 240px wide progress bar for each, filled with agent color at 70% opacity, event count + cost aligned right.
+  - AI Insights card 612×80px: card bg, 1px accent border, 10px radius. Left 32×32px icon container (accent bg): a crosshair built from 4×28px rectangle + 28×4px rectangle (the "sparkle" insight icon). Summary
+   text 12px Semi Bold + detail text 10px text-secondary.
+  - Export button 612×48px: accent 12% bg, 1.5px accent border, "Xuất báo cáo PDF cho Hội đồng Quản trị" 14px accent Semi Bold. Arrow icon: 4×20px shaft + 16×4px arrowhead (geometric, no emoji).
+  - Footer note 10px text-muted: QR code mention.
+
+  ---
+  Technical Execution
+
+  - Framework: React + Tailwind CSS. Use dark: variants for all colors.
+  - Pixel Canvas: Phaser.js <canvas> element embedded inside a React component, rendering at exactly 1280×720px internal resolution scaled to fit.
+  - Whitespace: 80px minimum vertical gap between major sections on the landing page. 16–24px gap between cards within sections.
+  - No gradients except background ambient glow orbs (radial, very low opacity). All UI surfaces use flat solid fills from the token palette.
+  - No rounded corners above 20px anywhere in the UI.
+  - Hover states: Subtle 1px border changes from border to accent color. Card backgrounds shift one step up the surface stack. 150ms ease transitions only — no bouncy spring animations.
+  - Agent sprites on the canvas must use z-index based on y-coordinate (Y-sorting) — agents lower on screen render in front of agents higher on screen, creating 2.5D depth. Agents with approval.required state
+  always render at z-index: 1000.
+  - Smart Bubbles in Manager View show translated Vietnamese business language, never raw technical logs. In Dev View, raw monospaced English log syntax is used.
+  - Color meaning is absolute and must be consistent across all screens: emerald=success/idle, amber=waiting/cost, crimson=error/high-risk, accent violet=active/brand, sapphire=informational.
