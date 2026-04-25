@@ -1,0 +1,50 @@
+# DevOffice AI — Backend local dev
+#
+# Supabase stack (DB / Auth / Realtime / Studio / Storage) は
+# `supabase start` で別途起動。このファイルは Go API のみを管理する。
+#
+# Network: host.docker.internal で Supabase (54322) に接続。
+# Linux は `--add-host=host.docker.internal:host-gateway` 指定済み。
+
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    container_name: doai-api
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./api:/app
+      - go-mod-cache:/go/pkg/mod
+    env_file:
+      - ./api/.env
+    environment:
+      # Override: trong container chạy qua Python worker thật
+      WORKER_URL: "http://worker:8081"
+      DEV_INPROCESS_WORKER: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - worker
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: doai-worker
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./worker:/app
+    env_file:
+      - ./worker/.env
+    environment:
+      GO_API_URL: "http://api:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  go-mod-cache:

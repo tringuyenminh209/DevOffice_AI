@@ -1,0 +1,29 @@
+# Go
+api/tmp/
+api/build-errors.log
+api/vendor/
+*.test
+*.out
+
+# Env
+.env
+api/.env
+**/.env.local
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Python
+worker/.venv/
+worker/__pycache__/
+worker/app/__pycache__/
+worker/.env
+worker/*.pyc
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
