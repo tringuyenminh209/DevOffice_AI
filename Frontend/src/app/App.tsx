@@ -11,6 +11,7 @@ import { Toaster, toast } from './components/ui/sonner';
 import { useAuthStore } from '../stores/auth';
 import { useWorldStore } from '../stores/world';
 import { api, APIError } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import type { Approval } from '../lib/types';
 
 export type Screen = 'landing' | 'world' | 'company' | 'tasks' | 'task-detail' | 'credits' | 'auth';
@@ -68,6 +69,39 @@ export default function App() {
     })();
     return () => { cancelled = true; };
   }, [session, screen, refreshTick]);
+
+  // Realtime: subscribe approvals INSERT (RLS giới hạn về owner) → auto-popup modal mới
+  useEffect(() => {
+    if (!session) return;
+    const ch = supabase
+      .channel('approvals-watch')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'approvals' },
+        (payload) => {
+          const a = payload.new as Approval;
+          if (a.status !== 'pending') return;
+          setPendingApprovals((prev) => prev.some(p => p.id === a.id) ? prev : [a, ...prev]);
+          // Chỉ auto-popup nếu chưa có modal đang hiển thị
+          setActiveApproval((cur) => cur ?? a);
+          toast.warning(`新しい承認要求: ${a.actionName}`);
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'approvals' },
+        (payload) => {
+          const a = payload.new as Approval;
+          if (a.status !== 'pending') {
+            // Resolved bởi tab khác → drop khỏi list
+            setPendingApprovals((prev) => prev.filter(p => p.id !== a.id));
+            setActiveApproval((cur) => cur?.id === a.id ? null : cur);
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session]);
 
   // Find company info for active approval
   const approvalCompany = useMemo(() => {

@@ -141,11 +141,69 @@ RLS enabled. Frontend (anon JWT) → `auth.uid() = user_id` enforced. Go API →
 
 ---
 
-## Phase B (next)
+## Frontend integration (Phase F + G + H đã hoàn tất)
 
-- `/internal/*` endpoints (Worker → Go API, X-Internal-Key auth)
-- Supabase Realtime broadcast (`world:global`, `task:{id}`)
-- Python AI Worker stub (FastAPI + SQS poller)
-- LocalStack / ElasticMQ cho SQS local
+Frontend ở `../Frontend/` (React + Vite + shadcn/ui + Phaser canvas) đã wire đầy đủ với Backend:
 
-Xem `CLAUDE.md`.
+```
+Frontend (5174) ──── Authorization: Bearer <ES256 JWT> ────► Go API (8080)
+       │                                                          │
+       │                                                          │
+       └─── Supabase Realtime postgres_changes ◄────── INSERT ◄───┘
+            (channels: world / task:{id} / approvals-watch)
+```
+
+### Setup
+
+```bash
+cd ../Frontend
+# Frontend/.env.local cần điền VITE_SUPABASE_ANON_KEY thật
+# Lấy: Dashboard → Settings → API → "anon public"
+pnpm install
+pnpm dev   # http://localhost:5174
+```
+
+### Auth flow (Frontend perspective)
+
+1. **Signup/Signin** qua `supabase.auth.signUp/signInWithPassword` (anon key)
+2. Supabase Cloud trả về **ES256 access_token** (asymmetric keys, 2024+)
+3. Mọi `fetch` từ `lib/api.ts` đính `Authorization: Bearer ${session.access_token}`
+4. Go middleware verify qua **JWKS** lookup (`/auth/v1/.well-known/jwks.json`), fallback HS256 cho dev-mint
+
+### Realtime channels (Frontend subscribe)
+
+| Channel | Stores | Trigger |
+|---|---|---|
+| `world` | `useWorldStore.subscribe()` | companies UPDATE → live status / activeTasks |
+| `task:${taskId}` | `useTaskStore.subscribeEvents()` | task_events INSERT + tasks UPDATE → agent events stream |
+| `approvals-watch` | `App.tsx` useEffect | approvals INSERT → auto-popup ApprovalModal |
+
+RLS đảm bảo user chỉ nhận events thuộc tasks của bản thân.
+
+### Stores → API mapping
+
+| Store | API endpoints |
+|---|---|
+| `auth` (Zustand) | `supabase.auth.*` |
+| `world` | `GET /api/v1/world` + postgres_changes companies |
+| `task` | `GET /api/v1/tasks/:id` + `/events` + postgres_changes |
+| (App.tsx) | `GET /credits/balance` + `GET /approvals` polling on screen change |
+
+### CORS
+
+Backend `api/.env`:
+```
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:3000
+```
+
+`docker compose restart api` KHÔNG reload `env_file` — phải `docker compose up -d --force-recreate api`.
+
+### Known dev caveats
+
+- **Email confirmation ON by default**: Dashboard → Authentication → Providers → Email → tắt "Confirm email" để dev signup không cần verify
+- **Self-minted anon key không work**: Cloud whitelist các key chính thức. Phải copy từ Dashboard
+- **ES256 vs HS256**: Supabase Cloud (2024+) emit ES256 cho user JWTs. Backend `internal/middleware/jwt.go` hỗ trợ cả 2 (HS256 fallback cho dev-mint trong tests)
+
+## Phase E (production migration, deferred)
+
+Xem `CLAUDE.md` section "Phase E".

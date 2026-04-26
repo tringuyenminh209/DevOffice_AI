@@ -647,8 +647,9 @@ function WorldMapCanvas({
       // Task couriers (above roads, below buildings)
       s.couriers.forEach(c => drawTaskCourier(ctx, c, layouts, t));
 
-      // Buildings
-      COMPANIES.forEach((company, ci) => {
+      // Buildings — read live status/tasks từ ref (cập nhật bởi useWorldStore + postgres_changes)
+      const liveArr = liveCompaniesRef.current.length ? liveCompaniesRef.current : COMPANIES;
+      liveArr.forEach((company, ci) => {
         const l = layouts[ci];
         if (!l) return;
         const isHovered = s.hoveredCompany === ci;
@@ -782,6 +783,11 @@ export default function WorldMapPage({
       };
     });
   }, [realCompanies]);
+
+  // Canvas đọc live data qua ref để không phải remount khi store update.
+  // Render loop chạy ~60fps nên luôn lấy giá trị mới nhất.
+  const liveCompaniesRef = useRef(liveCompanies);
+  useEffect(() => { liveCompaniesRef.current = liveCompanies; }, [liveCompanies]);
 
   const handleCompanyClick = useCallback((wfId: string) => {
     // Map workflowType → real UUID for backend
