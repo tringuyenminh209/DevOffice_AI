@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import LandingPage from './components/LandingPage';
 import WorldMapPage from './components/WorldMapPage';
 import CompanyProfilePage from './components/CompanyProfilePage';
@@ -7,9 +7,11 @@ import AuthPage from './components/AuthPage';
 import MyTasksPage from './components/MyTasksPage';
 import TaskDetailPage from './components/TaskDetailPage';
 import CreditsPage from './components/CreditsPage';
-import { Toaster } from './components/ui/sonner';
+import { Toaster, toast } from './components/ui/sonner';
 import { useAuthStore } from '../stores/auth';
-import { api } from '../lib/api';
+import { useWorldStore } from '../stores/world';
+import { api, APIError } from '../lib/api';
+import type { Approval } from '../lib/types';
 
 export type Screen = 'landing' | 'world' | 'company' | 'tasks' | 'task-detail' | 'credits' | 'auth';
 
@@ -26,15 +28,22 @@ export interface AppNav {
   pendingApprovals: number;
 }
 
+// Map LOW/MEDIUM/HIGH → low/medium/high (ApprovalModal expects lowercase)
+function riskLower(r: Approval['riskLevel']): 'low' | 'medium' | 'high' {
+  return r.toLowerCase() as 'low' | 'medium' | 'high';
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('landing');
   const [params, setParams] = useState<NavParams>({});
   const [credits, setCredits] = useState(0);
-  const [pendingApprovals, setPendingApprovals] = useState(0);
-  const [showApproval, setShowApproval] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState<Approval[]>([]);
+  const [activeApproval, setActiveApproval] = useState<Approval | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const session = useAuthStore((s) => s.session);
   const initAuth = useAuthStore((s) => s.init);
+  const realCompanies = useWorldStore((s) => s.companies);
   const isLoggedIn = !!session;
 
   // Bootstrap auth session
@@ -42,9 +51,9 @@ export default function App() {
     void initAuth();
   }, [initAuth]);
 
-  // Refresh credits + pending approvals when logged in
+  // Refresh credits + pending approvals when logged in / screen change / tick
   useEffect(() => {
-    if (!session) { setCredits(0); setPendingApprovals(0); return; }
+    if (!session) { setCredits(0); setPendingApprovals([]); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -52,21 +61,28 @@ export default function App() {
           api.getCreditsBalance(),
           api.listApprovals(),
         ]);
-        if (!cancelled) {
-          setCredits(bal.creditsBalance);
-          setPendingApprovals(approvals.length);
-        }
-      } catch { /* ignore — not all screens require this */ }
+        if (cancelled) return;
+        setCredits(bal.creditsBalance);
+        setPendingApprovals(approvals);
+      } catch { /* ignore */ }
     })();
     return () => { cancelled = true; };
-  }, [session, screen]);
+  }, [session, screen, refreshTick]);
+
+  // Find company info for active approval
+  const approvalCompany = useMemo(() => {
+    if (!activeApproval) return null;
+    // Need to find the task → company. We don't have task here; use a simple default.
+    // Approvals data includes taskId; loadup happens lazily in modal trigger.
+    return realCompanies[0] ?? null;
+  }, [activeApproval, realCompanies]);
 
   const nav: AppNav = {
     goto: (s, p = {}) => { setScreen(s); setParams(p); },
     params,
     isLoggedIn,
     credits,
-    pendingApprovals,
+    pendingApprovals: pendingApprovals.length,
   };
 
   const handleLogin = () => {
@@ -74,52 +90,48 @@ export default function App() {
     setParams({});
   };
 
+  const openFirstApproval = async () => {
+    if (pendingApprovals.length === 0) {
+      toast.info('保留中の承認はありません');
+      return;
+    }
+    setActiveApproval(pendingApprovals[0]);
+  };
+
+  const resolveApproval = async (decision: 'approved' | 'rejected') => {
+    if (!activeApproval) return;
+    try {
+      await api.resolveApproval(activeApproval.id, decision);
+      toast.success(decision === 'approved' ? '承認しました' : '拒否しました');
+      setActiveApproval(null);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      const msg = err instanceof APIError ? err.message : (err as Error).message;
+      toast.error(`失敗: ${msg}`);
+    }
+  };
+
   return (
     <div className="size-full dark">
-      {screen === 'landing' && (
-        <LandingPage nav={nav} onLogin={handleLogin} />
-      )}
+      {screen === 'landing' && <LandingPage nav={nav} onLogin={handleLogin} />}
+      {screen === 'auth' && <AuthPage nav={nav} onSuccess={handleLogin} />}
+      {screen === 'world' && <WorldMapPage nav={nav} onApprovalTrigger={openFirstApproval} />}
+      {screen === 'company' && <CompanyProfilePage nav={nav} companyId={params.companyId ?? 'MK'} />}
+      {screen === 'tasks' && <MyTasksPage nav={nav} />}
+      {screen === 'task-detail' && <TaskDetailPage nav={nav} taskId={params.taskId ?? 't1'} />}
+      {screen === 'credits' && <CreditsPage nav={nav} />}
 
-      {screen === 'auth' && (
-        <AuthPage nav={nav} onSuccess={handleLogin} />
-      )}
-
-      {screen === 'world' && (
-        <WorldMapPage nav={nav} onApprovalTrigger={() => setShowApproval(true)} />
-      )}
-
-      {screen === 'company' && (
-        <CompanyProfilePage nav={nav} companyId={params.companyId ?? 'MK'} />
-      )}
-
-      {screen === 'tasks' && (
-        <MyTasksPage nav={nav} />
-      )}
-
-      {screen === 'task-detail' && (
-        <TaskDetailPage nav={nav} taskId={params.taskId ?? 't1'} />
-      )}
-
-      {screen === 'credits' && (
-        <CreditsPage nav={nav} />
-      )}
-
-      {showApproval && (
+      {activeApproval && (
         <ApprovalModal
-          agentName="Analytics Agent"
-          companyId="AN"
-          companyColor="#10B06B"
-          tool="send_email"
-          args={{
-            to: 'board@company.jp',
-            subject: 'Q1 Sales Analysis Report',
-            body: '{{personalized_content}}',
-            attachments: ['q1_report.pdf'],
-          }}
-          riskLevel="high"
-          onClose={() => setShowApproval(false)}
-          onApprove={() => setShowApproval(false)}
-          onReject={() => setShowApproval(false)}
+          agentName={activeApproval.actionName}
+          companyId={approvalCompany?.workflowType ?? 'AI'}
+          companyColor={approvalCompany?.buildingColor ?? '#5E55EA'}
+          tool={activeApproval.actionName}
+          args={activeApproval.actionPayload as Record<string, unknown>}
+          riskLevel={riskLower(activeApproval.riskLevel)}
+          onClose={() => setActiveApproval(null)}
+          onApprove={() => void resolveApproval('approved')}
+          onReject={() => void resolveApproval('rejected')}
         />
       )}
 

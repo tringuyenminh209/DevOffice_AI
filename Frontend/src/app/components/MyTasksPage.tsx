@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { AppNav } from '../App';
+import { api } from '../../lib/api';
+import { useWorldStore } from '../../stores/world';
+import type { Task as ApiTask } from '../../lib/types';
 
 type TaskStatus = 'running' | 'awaiting_approval' | 'completed' | 'failed';
 type FilterTab = 'all' | TaskStatus;
@@ -16,6 +19,7 @@ interface Task {
   creditsUsed: number;
 }
 
+// keep MOCK_TASKS as fallback / preview if API fails or empty (dev convenience)
 const MOCK_TASKS: Task[] = [
   {
     id: 't1', companyId: 'MK', companyName: 'Marketing Crew', companyColor: '#DA3950',
@@ -75,18 +79,69 @@ function elapsed(start: string, end: string | null) {
   return `${min}分`;
 }
 
+// Map Backend status (incl. queued) → UI display status
+function uiStatus(s: ApiTask['status']): TaskStatus {
+  switch (s) {
+    case 'queued':
+    case 'running':            return 'running';
+    case 'awaiting_approval':  return 'awaiting_approval';
+    case 'completed':          return 'completed';
+    case 'failed':             return 'failed';
+  }
+}
+
 export default function MyTasksPage({ nav }: { nav: AppNav }) {
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const counts: Record<FilterTab, number> = {
-    all:               MOCK_TASKS.length,
-    running:           MOCK_TASKS.filter(t => t.status === 'running').length,
-    awaiting_approval: MOCK_TASKS.filter(t => t.status === 'awaiting_approval').length,
-    completed:         MOCK_TASKS.filter(t => t.status === 'completed').length,
-    failed:            MOCK_TASKS.filter(t => t.status === 'failed').length,
-  };
+  const realCompanies = useWorldStore((s) => s.companies);
+  const loadWorld = useWorldStore((s) => s.load);
 
-  const filtered = filter === 'all' ? MOCK_TASKS : MOCK_TASKS.filter(t => t.status === filter);
+  useEffect(() => {
+    void loadWorld();
+  }, [loadWorld]);
+
+  // Refetch on screen mount
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); setError(null);
+    api.listTasks(50).then((items) => {
+      if (cancelled) return;
+      const mapped: Task[] = (items ?? []).map((t) => {
+        const c = realCompanies.find((x) => x.id === t.companyId);
+        return {
+          id: t.id,
+          companyId: c?.workflowType ?? '?',
+          companyName: c?.name ?? 'Unknown',
+          companyColor: c?.buildingColor ?? '#5E55EA',
+          title: t.brief.length > 60 ? t.brief.slice(0, 60) + '…' : t.brief,
+          status: uiStatus(t.status),
+          submittedAt: t.createdAt,
+          completedAt: t.completedAt ?? null,
+          creditsUsed: t.creditsCharged,
+        };
+      });
+      setTasks(mapped);
+      setLoading(false);
+    }).catch((e) => {
+      if (cancelled) return;
+      setError((e as Error).message);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [realCompanies]);
+
+  const counts = useMemo<Record<FilterTab, number>>(() => ({
+    all:               tasks.length,
+    running:           tasks.filter(t => t.status === 'running').length,
+    awaiting_approval: tasks.filter(t => t.status === 'awaiting_approval').length,
+    completed:         tasks.filter(t => t.status === 'completed').length,
+    failed:            tasks.filter(t => t.status === 'failed').length,
+  }), [tasks]);
+
+  const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -144,9 +199,24 @@ export default function MyTasksPage({ nav }: { nav: AppNav }) {
         </div>
 
         <div className="flex flex-col gap-2">
-          {filtered.length === 0 && (
+          {loading && (
             <div className="py-20 text-center text-[13px] text-muted-foreground">
-              タスクがありません
+              <div className="inline-flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                読み込み中…
+              </div>
+            </div>
+          )}
+          {!loading && error && (
+            <div className="py-12 text-center text-[13px]" style={{ color: '#DA3950' }}>
+              エラー: {error}
+            </div>
+          )}
+          {!loading && !error && filtered.length === 0 && (
+            <div className="py-20 text-center text-[13px] text-muted-foreground">
+              {filter === 'all' ? 'まだタスクがありません — World Map から会社を選んで依頼を作成してください' : '該当するタスクがありません'}
             </div>
           )}
           {filtered.map(task => {

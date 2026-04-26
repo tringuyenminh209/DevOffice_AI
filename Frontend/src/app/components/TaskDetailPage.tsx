@@ -1,10 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from './ui/button';
+import { toast } from './ui/sonner';
 import type { AppNav } from '../App';
 import { useTaskStore } from '../../stores/task';
 import { useWorldStore } from '../../stores/world';
 import { api } from '../../lib/api';
 import type { TaskEvent as RealTaskEvent } from '../../lib/types';
+
+// Browser Notification permission helper
+function ensureNotifyPermission() {
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission === 'default') {
+    void Notification.requestPermission();
+  }
+}
+
+function notify(title: string, body: string) {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try { new Notification(title, { body, silent: false }); } catch { /* noop */ }
+  }
+}
 
 type TaskStatus = 'running' | 'awaiting_approval' | 'completed' | 'failed';
 type EventType = 'start' | 'tool' | 'thinking' | 'complete' | 'approval' | 'error';
@@ -190,6 +205,7 @@ export default function TaskDetailPage({ nav, taskId }: { nav: AppNav; taskId: s
 
   useEffect(() => {
     void loadWorld();
+    ensureNotifyPermission();
   }, [loadWorld]);
 
   useEffect(() => {
@@ -197,6 +213,24 @@ export default function TaskDetailPage({ nav, taskId }: { nav: AppNav; taskId: s
     const unsub = subscribeEvents(taskId);
     return () => { unsub(); resetTask(); };
   }, [taskId, loadTask, subscribeEvents, resetTask]);
+
+  // Notify on terminal status changes (avoid double-fire)
+  const lastStatusRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const cur = realTask?.status;
+    if (!cur || cur === lastStatusRef.current) return;
+    if (cur === 'completed' && lastStatusRef.current && lastStatusRef.current !== 'completed') {
+      toast.success('タスクが完了しました');
+      notify('DevOffice AI', 'タスクが完了しました — 成果物を確認してください');
+    } else if (cur === 'failed' && lastStatusRef.current && lastStatusRef.current !== 'failed') {
+      toast.error(`タスクが失敗しました: ${realTask?.errorMessage ?? '不明'}`);
+      notify('DevOffice AI', 'タスクが失敗しました');
+    } else if (cur === 'awaiting_approval' && lastStatusRef.current !== 'awaiting_approval') {
+      toast.warning('承認ゲートが発動しました');
+      notify('DevOffice AI', '承認が必要です — タスクが一時停止しています');
+    }
+    lastStatusRef.current = cur;
+  }, [realTask?.status, realTask?.errorMessage]);
 
   // Khi task completed → fetch signed result URL
   useEffect(() => {

@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from './ui/button';
+import { toast } from './ui/sonner';
 import type { AppNav } from '../App';
+import { api } from '../../lib/api';
+import type { CreditsBalance } from '../../lib/types';
 
 interface Transaction {
   id: string;
@@ -11,16 +14,6 @@ interface Transaction {
   companyId?: string;
   companyColor?: string;
 }
-
-const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: 'tx1', type: 'used',      amount: -10,  description: 'ランディングページのコピーライティング', date: '2026-04-24', companyId: 'MK', companyColor: '#DA3950' },
-  { id: 'tx2', type: 'used',      amount: -12,  description: '利用規約の法的チェック',                date: '2026-04-23', companyId: 'LG', companyColor: '#9333EA' },
-  { id: 'tx3', type: 'used',      amount: -10,  description: 'SNSキャンペーン企画',                   date: '2026-04-21', companyId: 'MK', companyColor: '#DA3950' },
-  { id: 'tx4', type: 'purchased', amount: +150, description: 'Standard プラン — クレジット購入',      date: '2026-04-20' },
-  { id: 'tx5', type: 'used',      amount: -15,  description: 'Webアプリ開発サポート',                 date: '2026-04-18', companyId: 'DV', companyColor: '#5E55EA' },
-  { id: 'tx6', type: 'used',      amount: -8,   description: '業界レポート作成',                      date: '2026-04-15', companyId: 'RS', companyColor: '#267ADE' },
-  { id: 'tx7', type: 'purchased', amount: +50,  description: 'Starter プラン — クレジット購入',       date: '2026-04-10' },
-];
 
 const PLANS = [
   {
@@ -57,14 +50,60 @@ const PLANS = [
 
 export default function CreditsPage({ nav }: { nav: AppNav }) {
   const [purchasing, setPurchasing] = useState<string | null>(null);
-  const [purchased, setPurchased] = useState<string | null>(null);
+  const [, setPurchased] = useState<string | null>(null);
+  const [balance, setBalance] = useState<CreditsBalance | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [granting, setGranting] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  // Load balance + tx
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [bal, txs] = await Promise.all([
+          api.getCreditsBalance(),
+          api.listCreditsTransactions(20),
+        ]);
+        if (cancelled) return;
+        setBalance(bal);
+        const mapped: Transaction[] = txs.map((t) => ({
+          id: t.id,
+          type: t.txType === 'purchase' || t.txType === 'refund' ? 'purchased' : 'used',
+          amount: t.amount,
+          description: t.description ?? (t.txType === 'debit' ? 'タスク投稿' : t.txType === 'refund' ? '返金' : 'クレジット購入'),
+          date: t.createdAt.slice(0, 10),
+        }));
+        setTransactions(mapped);
+      } catch (err) {
+        if (!cancelled) toast.error(`残高取得失敗: ${(err as Error).message}`);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tick]);
 
   const handlePurchase = async (planId: string) => {
     setPurchasing(planId);
     await new Promise(r => setTimeout(r, 1500));
     setPurchasing(null);
     setPurchased(planId);
+    toast.info('Stripe Checkout は Phase E で実装予定です');
   };
+
+  const handleDevGrant = async () => {
+    setGranting(true);
+    try {
+      const newBal = await api.devGrantCredits(100);
+      toast.success(`+100 cr 付与しました (残高: ${newBal.creditsBalance})`);
+      setTick((t) => t + 1);
+    } catch (err) {
+      toast.error(`Dev grant 失敗: ${(err as Error).message}`);
+    } finally {
+      setGranting(false);
+    }
+  };
+
+  const liveCredits = balance?.creditsBalance ?? nav.credits;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -94,15 +133,26 @@ export default function CreditsPage({ nav }: { nav: AppNav }) {
           <div>
             <p className="text-[12px] text-muted-foreground mb-0.5">現在の残高</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-[38px] font-bold leading-none">{nav.credits}</span>
+              <span className="text-[38px] font-bold leading-none">{liveCredits}</span>
               <span className="text-[15px] text-muted-foreground font-medium">クレジット</span>
             </div>
           </div>
           <div className="flex-1" />
-          <div className="text-right hidden sm:block">
-            <p className="text-[11px] text-muted-foreground mb-0.5">平均タスクコスト</p>
-            <p className="text-[20px] font-bold">10–15 cr</p>
-            <p className="text-[11px] text-muted-foreground">/ タスク</p>
+          <div className="flex items-center gap-3">
+            {/* Dev-only: top-up shortcut */}
+            <Button
+              variant="outline"
+              className="h-9 text-[12px]"
+              onClick={handleDevGrant}
+              disabled={granting}
+            >
+              {granting ? '付与中…' : '+100 cr (dev)'}
+            </Button>
+            <div className="text-right hidden sm:block">
+              <p className="text-[11px] text-muted-foreground mb-0.5">平均タスクコスト</p>
+              <p className="text-[20px] font-bold">10–15 cr</p>
+              <p className="text-[11px] text-muted-foreground">/ タスク</p>
+            </div>
           </div>
         </div>
 
@@ -223,8 +273,13 @@ export default function CreditsPage({ nav }: { nav: AppNav }) {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_TRANSACTIONS.map((tx, i) => (
-                  <tr key={tx.id} className={i < MOCK_TRANSACTIONS.length - 1 ? 'border-b border-border' : ''}>
+                {transactions.length === 0 && (
+                  <tr><td colSpan={3} className="text-center text-[12px] text-muted-foreground py-8">
+                    まだ取引履歴がありません
+                  </td></tr>
+                )}
+                {transactions.map((tx, i) => (
+                  <tr key={tx.id} className={i < transactions.length - 1 ? 'border-b border-border' : ''}>
                     <td className="text-[12px] text-muted-foreground px-4 py-3 font-mono whitespace-nowrap">{tx.date}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
+import { toast } from './ui/sonner';
 import type { AppNav } from '../App';
 import { useAuthStore } from '../../stores/auth';
 
@@ -32,12 +33,16 @@ export default function AuthPage({
     try {
       if (tab === 'login') {
         await signIn(email, password);
+        toast.success('ログインしました');
       } else {
         await signUp(email, password);
+        toast.success('アカウント作成完了');
       }
       onSuccess();
     } catch (err) {
-      setError((err as Error).message || 'エラーが発生しました');
+      const msg = (err as Error).message || 'エラーが発生しました';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

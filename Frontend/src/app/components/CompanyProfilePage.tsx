@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import type { AppNav } from '../App';
 import { useWorldStore } from '../../stores/world';
 import { api, APIError } from '../../lib/api';
+import { toast } from './ui/sonner';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -780,6 +781,7 @@ export default function CompanyProfilePage({ nav, companyId }: { nav: AppNav; co
       const task = await api.createTask(realCompanyUUID, briefText);
       setSubmitting(false);
       setSubmitted(true);
+      toast.success('タスクを依頼しました — Worker に転送中');
       // Sau 1.5s nhảy thẳng vào task-detail để xem realtime events
       setTimeout(() => nav.goto('task-detail', { taskId: task.id }), 1500);
     } catch (err) {
@@ -788,6 +790,7 @@ export default function CompanyProfilePage({ nav, companyId }: { nav: AppNav; co
         ? (err.code === 'insufficient_credits' ? 'クレジットが不足しています' : err.message)
         : (err as Error).message;
       setSubmitError(msg);
+      toast.error(`タスク作成失敗: ${msg}`);
     }
   };
 

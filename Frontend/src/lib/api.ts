@@ -73,6 +73,11 @@ export const api = {
   // Credits
   getCreditsBalance: () =>
     request<CreditsBalance>('GET', '/api/v1/credits/balance'),
+  listCreditsTransactions: (limit = 20) =>
+    request<{ items: Array<{
+      id: string; amount: number; txType: 'purchase'|'debit'|'refund';
+      description?: string; createdAt: string; taskId?: string;
+    }> }>('GET', `/api/v1/credits/transactions?limit=${limit}`).then(r => r.items),
   devGrantCredits: (amount = 100) =>
     request<CreditsBalance>('POST', '/api/v1/credits/dev-grant', { amount }),
 };
