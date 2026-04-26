@@ -89,8 +89,16 @@ func main() {
 	e.GET("/health", healthH.Liveness)
 	e.GET("/health/ready", healthH.Readiness)
 
-	// Public API (Supabase JWT)
-	api := e.Group("/api/v1", apimw.SupabaseJWT(cfg.JWTSecret))
+	// Public API (Supabase JWT — HS256 dev or ES256 cloud via JWKS)
+	jwksURL := ""
+	if cfg.SupabaseURL != "" {
+		jwksURL = cfg.SupabaseURL + "/auth/v1/.well-known/jwks.json"
+	}
+	jwtVerifier, err := apimw.NewJWTVerifier(cfg.JWTSecret, jwksURL)
+	if err != nil {
+		log.Fatalf("jwt verifier init failed: %v", err)
+	}
+	api := e.Group("/api/v1", jwtVerifier.Middleware())
 	api.GET("/companies", companyH.List)
 	api.GET("/companies/:id", companyH.Get)
 	api.GET("/world", worldH.Snapshot)

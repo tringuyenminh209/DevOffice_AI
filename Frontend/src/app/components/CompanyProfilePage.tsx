@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import type { AppNav } from '../App';
+import { useWorldStore } from '../../stores/world';
+import { api, APIError } from '../../lib/api';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -712,7 +714,13 @@ function OfficeCanvas({
 type Tab = 'request' | 'agent' | 'info';
 
 export default function CompanyProfilePage({ nav, companyId }: { nav: AppNav; companyId: string }) {
-  const company = COMPANIES[companyId] ?? COMPANIES['MK'];
+  // companyId từ WorldMap = real UUID. Resolve to workflowType (MK/DV/...) qua world store.
+  const realCompanies = useWorldStore((s) => s.companies);
+  const real = realCompanies.find((c) => c.id === companyId);
+  // Fallback: nếu companyId là workflow type (legacy/direct), dùng nó luôn
+  const wfKey = real?.workflowType ?? companyId;
+  const realCompanyUUID = real?.id ?? companyId;
+  const company = COMPANIES[wfKey] ?? COMPANIES['MK'];
 
   const [focusedRoomId, setFocusedRoomId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -761,13 +769,26 @@ export default function CompanyProfilePage({ nav, companyId }: { nav: AppNav; co
     setSelectedAgentId(null);
   };
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     if (!canSubmit || !canAfford) return;
+    setSubmitError(null);
     setSubmitting(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setSubmitting(false);
-    setSubmitted(true);
-    setTimeout(() => nav.goto('world'), 1800);
+    try {
+      const briefText = brief.trim() || `Selected: ${selectedTask}`;
+      const task = await api.createTask(realCompanyUUID, briefText);
+      setSubmitting(false);
+      setSubmitted(true);
+      // Sau 1.5s nhảy thẳng vào task-detail để xem realtime events
+      setTimeout(() => nav.goto('task-detail', { taskId: task.id }), 1500);
+    } catch (err) {
+      setSubmitting(false);
+      const msg = err instanceof APIError
+        ? (err.code === 'insufficient_credits' ? 'クレジットが不足しています' : err.message)
+        : (err as Error).message;
+      setSubmitError(msg);
+    }
   };
 
   if (submitted) {
@@ -1196,6 +1217,12 @@ export default function CompanyProfilePage({ nav, companyId }: { nav: AppNav; co
                       クレジット不足
                       <button className="underline ml-1" onClick={() => nav.goto('credits')}>購入</button>
                     </span>
+                  </div>
+                )}
+                {submitError && (
+                  <div className="p-2.5 rounded-lg text-[11px]"
+                    style={{ background: 'rgba(218,57,80,0.1)', border: '1px solid rgba(218,57,80,0.3)', color: '#DA3950' }}>
+                    {submitError}
                   </div>
                 )}
 

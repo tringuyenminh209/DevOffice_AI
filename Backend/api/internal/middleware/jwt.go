@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -22,16 +25,47 @@ type SupabaseClaims struct {
 	UserMetadata map[string]interface{} `json:"user_metadata,omitempty"`
 }
 
-// SupabaseJWT は Authorization: Bearer <jwt> を HS256 で検証し、
-// c.Set("user_id", uuid.UUID) と c.Set("jwt_claims", *SupabaseClaims) を埋める。
-func SupabaseJWT(secret string) echo.MiddlewareFunc {
-	keyFn := func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, NewAPIError(http.StatusUnauthorized, "unauthorized", "unexpected signing method")
-		}
-		return []byte(secret), nil
-	}
+// JWTVerifier hỗ trợ:
+//   - ES256 (Supabase Cloud asymmetric keys, lookup qua JWKS)
+//   - HS256 (legacy + dev internal-mint, fallback dùng `secret`)
+type JWTVerifier struct {
+	hs256Secret []byte
+	jwks        keyfunc.Keyfunc // có thể nil nếu không cấu hình SUPABASE_URL
+}
 
+// NewJWTVerifier khởi tạo verifier. Nếu jwksURL rỗng, chỉ HS256.
+func NewJWTVerifier(hs256Secret string, jwksURL string) (*JWTVerifier, error) {
+	v := &JWTVerifier{hs256Secret: []byte(hs256Secret)}
+	if jwksURL == "" {
+		return v, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	k, err := keyfunc.NewDefaultCtx(ctx, []string{jwksURL})
+	if err != nil {
+		return nil, err
+	}
+	v.jwks = k
+	return v, nil
+}
+
+func (v *JWTVerifier) keyFunc(t *jwt.Token) (interface{}, error) {
+	switch t.Method.Alg() {
+	case "HS256":
+		return v.hs256Secret, nil
+	case "ES256", "RS256":
+		if v.jwks == nil {
+			return nil, NewAPIError(http.StatusUnauthorized, "unauthorized", "asymmetric token but JWKS not configured")
+		}
+		return v.jwks.Keyfunc(t)
+	default:
+		return nil, NewAPIError(http.StatusUnauthorized, "unauthorized", "unexpected signing method")
+	}
+}
+
+// SupabaseJWT extracts Authorization: Bearer <jwt>, verifies signature (HS256 or ES256),
+// then sets c.Set("user_id", uuid.UUID) + c.Set("jwt_claims", *SupabaseClaims).
+func (v *JWTVerifier) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			h := c.Request().Header.Get("Authorization")
@@ -41,7 +75,7 @@ func SupabaseJWT(secret string) echo.MiddlewareFunc {
 			raw := strings.TrimPrefix(h, "Bearer ")
 
 			claims := &SupabaseClaims{}
-			tok, err := jwt.ParseWithClaims(raw, claims, keyFn)
+			tok, err := jwt.ParseWithClaims(raw, claims, v.keyFunc)
 			if err != nil || !tok.Valid {
 				return NewAPIError(http.StatusUnauthorized, "unauthorized", "invalid token")
 			}
@@ -60,6 +94,13 @@ func SupabaseJWT(secret string) echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+// SupabaseJWT giữ nguyên signature cũ (chỉ HS256 secret) — backward compat cho main.go cũ.
+// Mới: nên dùng NewJWTVerifier + Middleware().
+func SupabaseJWT(secret string) echo.MiddlewareFunc {
+	v := &JWTVerifier{hs256Secret: []byte(secret)}
+	return v.Middleware()
 }
 
 func UserID(c echo.Context) uuid.UUID {

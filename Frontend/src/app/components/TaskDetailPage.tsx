@@ -1,6 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from './ui/button';
 import type { AppNav } from '../App';
+import { useTaskStore } from '../../stores/task';
+import { useWorldStore } from '../../stores/world';
+import { api } from '../../lib/api';
+import type { TaskEvent as RealTaskEvent } from '../../lib/types';
 
 type TaskStatus = 'running' | 'awaiting_approval' | 'completed' | 'failed';
 type EventType = 'start' | 'tool' | 'thinking' | 'complete' | 'approval' | 'error';
@@ -138,16 +142,98 @@ function elapsed(start: string, end: string | null) {
   return `${min}分`;
 }
 
+function mapEvent(ev: RealTaskEvent): TaskEvent {
+  const time = new Date(ev.createdAt).toLocaleTimeString('ja-JP', { hour12: false });
+  const p = ev.payload || {};
+  switch (ev.eventType) {
+    case 'task.started':
+      return { time, type: 'start', message: 'タスク受付完了 — Worker に割り当て済み' };
+    case 'agent.state': {
+      const state = (p.state as string) || 'idle';
+      const lbl = state === 'thinking' ? '思考中' : state === 'idle' ? 'アイドル' : state;
+      return { time, type: state === 'thinking' ? 'thinking' : 'tool', message: `${ev.agentId ?? '—'}: ${lbl}` };
+    }
+    case 'agent.tool_call': {
+      const tool = (p.tool as string) || 'tool';
+      return { time, type: 'tool', message: `${ev.agentId ?? '—'}: ${tool}(${JSON.stringify(p.args ?? {})})` };
+    }
+    case 'approval.required':
+      return { time, type: 'approval', message: `承認ゲート: ${(p.actionName as string) ?? 'unknown'} (risk=${(p.riskLevel as string) ?? '?'})` };
+    case 'task.completed':
+      return { time, type: 'complete', message: '成果物を Storage にアップロード完了' };
+    case 'task.failed':
+      return { time, type: 'error', message: `失敗: ${(p.errorMessage as string) ?? (p.reason as string) ?? '不明'}` };
+    default:
+      return { time, type: 'thinking', message: `${ev.eventType}` };
+  }
+}
+
+const STATUS_MAP: Record<string, TaskStatus> = {
+  queued: 'running',
+  running: 'running',
+  awaiting_approval: 'awaiting_approval',
+  completed: 'completed',
+  failed: 'failed',
+};
+
 export default function TaskDetailPage({ nav, taskId }: { nav: AppNav; taskId: string }) {
   const [downloading, setDownloading] = useState(false);
-  const task = MOCK_TASKS[taskId] ?? MOCK_TASKS['t1'];
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+
+  const realTask = useTaskStore((s) => s.current);
+  const realEvents = useTaskStore((s) => s.events);
+  const loadTask = useTaskStore((s) => s.loadTask);
+  const subscribeEvents = useTaskStore((s) => s.subscribeEvents);
+  const resetTask = useTaskStore((s) => s.reset);
+  const realCompanies = useWorldStore((s) => s.companies);
+  const loadWorld = useWorldStore((s) => s.load);
+
+  useEffect(() => {
+    void loadWorld();
+  }, [loadWorld]);
+
+  useEffect(() => {
+    void loadTask(taskId);
+    const unsub = subscribeEvents(taskId);
+    return () => { unsub(); resetTask(); };
+  }, [taskId, loadTask, subscribeEvents, resetTask]);
+
+  // Khi task completed → fetch signed result URL
+  useEffect(() => {
+    if (realTask?.status === 'completed' && realTask.resultUrl && !resultUrl) {
+      api.getTaskResult(taskId).then((r) => setResultUrl(r.resultUrl)).catch(() => {});
+    }
+  }, [realTask?.status, realTask?.resultUrl, taskId, resultUrl]);
+
+  const task: Task = useMemo(() => {
+    if (!realTask) {
+      return MOCK_TASKS[taskId] ?? MOCK_TASKS['t1'];
+    }
+    const company = realCompanies.find((c) => c.id === realTask.companyId);
+    return {
+      id: realTask.id,
+      companyId: company?.workflowType ?? '?',
+      companyName: company?.name ?? 'Unknown',
+      companyColor: company?.buildingColor ?? '#5E55EA',
+      title: realTask.brief.slice(0, 60),
+      status: STATUS_MAP[realTask.status] ?? 'running',
+      submittedAt: realTask.createdAt,
+      completedAt: realTask.completedAt ?? null,
+      creditsUsed: realTask.creditsCharged,
+      brief: realTask.brief,
+      events: realEvents.map(mapEvent),
+      resultFile: resultUrl ? `result_${realTask.id.slice(0, 8)}.html` : undefined,
+    };
+  }, [realTask, realEvents, realCompanies, resultUrl, taskId]);
+
   const cfg = STATUS_CFG[task.status];
   const dur = elapsed(task.submittedAt, task.completedAt);
 
   const handleDownload = async () => {
+    if (!resultUrl) return;
     setDownloading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setDownloading(false);
+    window.open(resultUrl, '_blank', 'noopener');
+    setTimeout(() => setDownloading(false), 800);
   };
 
   return (

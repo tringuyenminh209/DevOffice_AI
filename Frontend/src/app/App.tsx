@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import LandingPage from './components/LandingPage';
 import WorldMapPage from './components/WorldMapPage';
 import CompanyProfilePage from './components/CompanyProfilePage';
@@ -8,6 +8,8 @@ import MyTasksPage from './components/MyTasksPage';
 import TaskDetailPage from './components/TaskDetailPage';
 import CreditsPage from './components/CreditsPage';
 import { Toaster } from './components/ui/sonner';
+import { useAuthStore } from '../stores/auth';
+import { api } from '../lib/api';
 
 export type Screen = 'landing' | 'world' | 'company' | 'tasks' | 'task-detail' | 'credits' | 'auth';
 
@@ -24,15 +26,40 @@ export interface AppNav {
   pendingApprovals: number;
 }
 
-const MOCK_CREDITS = 150;
-
 export default function App() {
   const [screen, setScreen] = useState<Screen>('landing');
   const [params, setParams] = useState<NavParams>({});
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [credits] = useState(MOCK_CREDITS);
-  const [pendingApprovals] = useState(1);
+  const [credits, setCredits] = useState(0);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
   const [showApproval, setShowApproval] = useState(false);
+
+  const session = useAuthStore((s) => s.session);
+  const initAuth = useAuthStore((s) => s.init);
+  const isLoggedIn = !!session;
+
+  // Bootstrap auth session
+  useEffect(() => {
+    void initAuth();
+  }, [initAuth]);
+
+  // Refresh credits + pending approvals when logged in
+  useEffect(() => {
+    if (!session) { setCredits(0); setPendingApprovals(0); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [bal, approvals] = await Promise.all([
+          api.getCreditsBalance(),
+          api.listApprovals(),
+        ]);
+        if (!cancelled) {
+          setCredits(bal.creditsBalance);
+          setPendingApprovals(approvals.length);
+        }
+      } catch { /* ignore — not all screens require this */ }
+    })();
+    return () => { cancelled = true; };
+  }, [session, screen]);
 
   const nav: AppNav = {
     goto: (s, p = {}) => { setScreen(s); setParams(p); },
@@ -43,7 +70,6 @@ export default function App() {
   };
 
   const handleLogin = () => {
-    setIsLoggedIn(true);
     setScreen('world');
     setParams({});
   };

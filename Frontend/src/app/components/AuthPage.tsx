@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import type { AppNav } from '../App';
+import { useAuthStore } from '../../stores/auth';
 
 type AuthTab = 'login' | 'register';
 
@@ -19,6 +20,8 @@ export default function AuthPage({
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const signIn = useAuthStore((s) => s.signIn);
+  const signUp = useAuthStore((s) => s.signUp);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,16 +29,22 @@ export default function AuthPage({
     if (!email || !password) { setError('メールとパスワードを入力してください'); return; }
     if (tab === 'register' && !name) { setError('名前を入力してください'); return; }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
-    onSuccess();
+    try {
+      if (tab === 'login') {
+        await signIn(email, password);
+      } else {
+        await signUp(email, password);
+      }
+      onSuccess();
+    } catch (err) {
+      setError((err as Error).message || 'エラーが発生しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogle = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    onSuccess();
+    setError('Google サインインは Phase G で実装予定です');
   };
 
   return (

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Button } from './ui/button';
 import type { AppNav } from '../App';
+import { useWorldStore } from '../../stores/world';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Data
@@ -756,12 +757,40 @@ export default function WorldMapPage({
     return () => clearInterval(id);
   }, []);
 
-  const handleCompanyClick = useCallback((id: string) => {
-    nav.goto('company', { companyId: id });
-  }, [nav]);
+  // === Real data from Backend ===
+  const realCompanies = useWorldStore((s) => s.companies);
+  const loadWorld = useWorldStore((s) => s.load);
+  const subscribeWorld = useWorldStore((s) => s.subscribe);
 
-  const hoveredInfo = hoveredCompany ? COMPANIES.find(c => c.id === hoveredCompany) : null;
-  const activeCount = COMPANIES.filter(c => c.status === 'running').length;
+  useEffect(() => {
+    void loadWorld();
+    const unsub = subscribeWorld();
+    return unsub;
+  }, [loadWorld, subscribeWorld]);
+
+  // Override mock COMPANIES `status` + `tasks` with real values; keep visual styling
+  const liveCompanies = useMemo(() => {
+    if (!realCompanies.length) return COMPANIES;
+    const byWf = new Map(realCompanies.map((c) => [c.workflowType, c]));
+    return COMPANIES.map((c) => {
+      const r = byWf.get(c.id as 'MK' | 'DV' | 'LG' | 'RS' | 'AN');
+      if (!r) return c;
+      return {
+        ...c,
+        status: r.status as CompanyStatus,
+        tasks: r.activeTasks,
+      };
+    });
+  }, [realCompanies]);
+
+  const handleCompanyClick = useCallback((wfId: string) => {
+    // Map workflowType → real UUID for backend
+    const real = realCompanies.find((c) => c.workflowType === wfId);
+    nav.goto('company', { companyId: real?.id ?? wfId });
+  }, [nav, realCompanies]);
+
+  const hoveredInfo = hoveredCompany ? liveCompanies.find(c => c.id === hoveredCompany) : null;
+  const activeCount = liveCompanies.filter(c => c.status === 'running').length;
   const approvalCount = COMPANIES.filter(c => c.status === 'awaiting_approval').length;
   const totalTasks = COMPANIES.reduce((acc, c) => acc + c.tasks, 0);
   const totalAgentsWorking = COMPANIES.reduce((acc, c) => acc + c.agentStatuses.filter(s => s === 'working').length, 0);
@@ -928,7 +957,7 @@ export default function WorldMapPage({
             <div className="px-2 py-1.5 mb-1">
               <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: '#556177' }}>AI COMPANIES</span>
             </div>
-            {COMPANIES.map(company => {
+            {liveCompanies.map(company => {
               const statusColor = STATUS_COLORS[company.status];
               const workingCount = company.agentStatuses.filter(s => s === 'working').length;
               return (
